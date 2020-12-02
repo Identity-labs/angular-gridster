@@ -279,20 +279,9 @@
 				 * @param {Object} item
 				 */
 				this.removeItem = function(item) {
-					var index;
-					for (var rowIndex = 0, l = this.grid.length; rowIndex < l; ++rowIndex) {
-						var columns = this.grid[rowIndex];
-						if (!columns) {
-							continue;
-						}
-						index = columns.indexOf(item);
-						if (index !== -1) {
-							columns[index] = null;
-							break;
-						}
-					}
+					this.removeItemFromGridOverlap(item);
 					if (this.sparse) {
-						index = this.allItems.indexOf(item);
+						var index = this.allItems.indexOf(item);
 						if (index !== -1) {
 							this.allItems.splice(index, 1);
 						}
@@ -318,10 +307,12 @@
 							col = column;
 						while (col > -1) {
 							var items = this.grid[row];
-							if (items) {
-								var item = items[col];
-								if (item && (!excludeItems || excludeItems.indexOf(item) === -1) && item.sizeX >= sizeX && item.sizeY >= sizeY) {
-									return item;
+							if (items && items[col]) {
+								for (var i in items[col]) {
+									var item = items[col][i];
+									if (item && (!excludeItems || excludeItems.indexOf(item) === -1) && item.sizeX >= sizeX && item.sizeY >= sizeY) {
+										return item;
+									}
 								}
 							}
 							++sizeX;
@@ -372,17 +363,14 @@
 					// check if item is already in grid
 					if (item.oldRow !== null && typeof item.oldRow !== 'undefined') {
 						var samePosition = item.oldRow === row && item.oldColumn === column;
-						var inGrid = this.grid[row] && this.grid[row][column] === item;
+						var inGrid = this.grid[row] && this.grid[row][column] && this.grid[row][column].indexOf(item) !== -1;
 						if (samePosition && inGrid) {
 							item.row = row;
 							item.col = column;
 							return;
 						} else {
 							// remove from old position
-							var oldRow = this.grid[item.oldRow];
-							if (oldRow && oldRow[item.oldColumn] === item) {
-								delete oldRow[item.oldColumn];
-							}
+							this.removeItemFromGridOverlap(item);
 						}
 					}
 
@@ -391,10 +379,7 @@
 
 					this.moveOverlappingItems(item, ignoreItems);
 
-					if (!this.grid[row]) {
-						this.grid[row] = [];
-					}
-					this.grid[row][column] = item;
+					this.addItemToGridOverlap(item);
 
 					if (this.sparse && this.allItems.indexOf(item) === -1) {
 						this.allItems.push(item);
@@ -406,6 +391,29 @@
 					this.layoutChanged();
 				};
 
+				this.removeItemFromGridOverlap = function(item) {
+					if (!this.grid[item.row] || !this.grid[item.row][item.col]) {
+						return;
+					}
+					var index = this.grid[item.row][item.col].indexOf(item);
+					if (index !== -1) {
+						this.grid[item.row][item.col].splice(index, 1);
+					}
+				};
+
+				this.addItemToGridOverlap = function(item) {
+					if (!this.grid[item.row]) {
+						this.grid[item.row] = [];
+					}
+					if (!this.grid[item.row][item.col]) {
+						this.grid[item.row][item.col] = [];
+					}
+					var index = this.grid[item.row][item.col].indexOf(item);
+					if (index === -1) {
+						this.grid[item.row][item.col].push(item);
+					}
+				};
+
 				/**
 				 * Trade row and column if item1 with item2
 				 *
@@ -413,8 +421,8 @@
 				 * @param {Object} item2
 				 */
 				this.swapItems = function(item1, item2) {
-					this.grid[item1.row][item1.col] = item2;
-					this.grid[item2.row][item2.col] = item1;
+					this.removeItemFromGridOverlap(item1);
+					this.removeItemFromGridOverlap(item2);
 
 					var item1Row = item1.row;
 					var item1Col = item1.col;
@@ -422,6 +430,9 @@
 					item1.col = item2.col;
 					item2.row = item1Row;
 					item2.col = item1Col;
+
+					this.addItemToGridOverlap(item1);
+					this.addItemToGridOverlap(item2);
 				};
 
 				/**
@@ -520,9 +531,13 @@
 							continue;
 						}
 						for (var colIndex = 0, len = columns.length; colIndex < len; ++colIndex) {
-							var item = columns[colIndex];
-							if (item) {
-								this.floatItemUp(item);
+							if (columns[colIndex]) {
+								for (var i in columns[colIndex]) {
+									var item = columns[colIndex][i];
+									if (item) {
+										this.floatItemUp(item);
+									}
+								}
 							}
 						}
 					}
@@ -573,7 +588,11 @@
 						}
 						for (var colIndex = 0, len = columns.length; colIndex < len; ++colIndex) {
 							if (columns[colIndex]) {
-								maxHeight = Math.max(maxHeight, rowIndex + plus + columns[colIndex].sizeY);
+								for (var itemIndex = 0, len2 = columns[colIndex].length; itemIndex < len2; ++itemIndex) {
+									if (columns[colIndex][itemIndex]) {
+										maxHeight = Math.max(maxHeight, rowIndex + plus + columns[colIndex][itemIndex].sizeY);
+									}
+								}
 							}
 						}
 					}
