@@ -760,10 +760,14 @@
 
 									for (var colIndex = 0, len = columns.length; colIndex < len; ++colIndex) {
 										if (columns[colIndex]) {
-											var item = columns[colIndex];
-											item.setElementPosition();
-											item.setElementSizeY();
-											item.setElementSizeX();
+											if (columns[colIndex]) {
+												for (var i in columns[colIndex]) {
+													var item = columns[colIndex][i];
+													item.setElementPosition();
+													item.setElementSizeY();
+													item.setElementSizeX();
+												}
+											}
 										}
 									}
 								}
